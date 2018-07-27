@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<plugin id="cordova-plugin-app-update" version="1.0.0" 
+    xmlns="http://apache.org/cordova/ns/plugins/1.0" 
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <name>AppUpdate</name>
+    <js-module name="AppUpdate" src="www/AppUpdate.js">
+        <clobbers target="AppUpdate" />
+    </js-module>
+    <platform name="android">
+        <config-file parent="/*" target="res/xml/config.xml">
+            <feature name="AppUpdate">
+                <param name="android-package" value="com.izouma.appupdate.AppUpdate" />
+                <param name="onload" value="true" />
+            </feature>
+        </config-file>
+        <config-file target="AndroidManifest.xml" parent="/*">
+            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+            <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+        </config-file>
+        <config-file target="AndroidManifest.xml" parent="application">
+            <provider android:name="com.izouma.appupdate.FileProvider" android:authorities="${applicationId}.provider" android:exported="false" android:grantUriPermissions="true">
+                <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/appupdate_provider_paths"/>
+            </provider>
+        </config-file>
+        <source-file src="src/android/AppUpdate.java" target-dir="src/com/izouma/appupdate" />
+        <source-file src="src/android/FileProvider.java" target-dir="src/com/izouma/appupdate" />
+        <source-file src="src/android/xml/appupdate_provider_paths.xml" target-dir="res/xml" />
+        <framework src="com.liulishuo.filedownloader:library:1.7.4"/>
+        <framework src="com.android.support:support-v4:24.1.1+" />
+    </platform>
+    <platform name="ios">
+        <config-file parent="/*" target="config.xml">
+            <feature name="AppUpdate">
+                <param name="ios-package" value="AppUpdate" />
+                <param name="onload" value="true" />
+            </feature>
+        </config-file>
+        <source-file src="src/ios/AppUpdate.m" />
+    </platform>
+</plugin>
