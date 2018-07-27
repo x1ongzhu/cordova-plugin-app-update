@@ -1,5 +1,6 @@
 package com.izouma.appupdate;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -23,6 +24,7 @@ import org.apache.cordova.BuildHelper;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CallbackContext;
 
+import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -42,6 +44,8 @@ public class AppUpdate extends CordovaPlugin {
     private String applicationId;
     private AlertDialog updateDialog;
     private boolean checkAgainOnResume;
+    private boolean cancelable;
+    private String url;
 
     @Override
     protected void pluginInitialize() {
@@ -79,6 +83,38 @@ public class AppUpdate extends CordovaPlugin {
         super.onResume(multitasking);
         if (checkAgainOnResume) {
             checkUpdate(null);
+        }
+    }
+
+    @Override
+    public void requestPermissions(int requestCode) {
+        super.requestPermissions(requestCode);
+        cordova.requestPermissions(this, requestCode, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE});
+    }
+
+    @Override
+    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) throws JSONException {
+        super.onRequestPermissionResult(requestCode, permissions, grantResults);
+        if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            download(url, cancelable);
+        } else {
+            updateDialog.show();
+            new AlertDialog.Builder(cordova.getActivity(), AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)
+                    .setTitle("提示")
+                    .setMessage("需要相机权限")
+                    .setPositiveButton("打开设置", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                            Intent localIntent = new Intent();
+                            localIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            localIntent.setAction("android.settings.APPLICATION_DETAILS_SETTINGS");
+                            localIntent.setData(Uri.fromParts("package", cordova.getActivity().getPackageName(), null));
+                            cordova.getActivity().startActivity(localIntent);
+                        }
+                    })
+                    .create()
+                    .show();
         }
     }
 
@@ -154,7 +190,10 @@ public class AppUpdate extends CordovaPlugin {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 try {
-                                    download(jsonObject.getJSONObject("updateVersionInfo").getString("url"), cancelable);
+                                    AppUpdate.this.url = jsonObject.getJSONObject("updateVersionInfo").getString("url");
+                                    AppUpdate.this.cancelable = cancelable;
+                                    requestPermissions(1);
+//                                    download(jsonObject.getJSONObject("updateVersionInfo").getString("url"), cancelable);
                                     dialog.dismiss();
                                 } catch (JSONException e) {
                                     e.printStackTrace();
@@ -191,7 +230,7 @@ public class AppUpdate extends CordovaPlugin {
         progressDialog.setMessage("正在下载");
         progressDialog.setProgress(0);
 
-        final File apkFile = new File(Environment.getExternalStoragePublicDirectory("apk"), "update.apk");
+        final File apkFile = new File(Environment.getExternalStoragePublicDirectory("apk"), System.currentTimeMillis() + ".apk");
         final BaseDownloadTask downloadTask = FileDownloader.getImpl().create(url)
                 .setPath(apkFile.getPath())
                 .setListener(new FileDownloadListener() {
@@ -219,7 +258,6 @@ public class AppUpdate extends CordovaPlugin {
                     @Override
                     protected void completed(BaseDownloadTask task) {
                         progressDialog.dismiss();
-                        Toast.makeText(cordova.getActivity(), "completed", Toast.LENGTH_SHORT).show();
                         Intent intent = new Intent(Intent.ACTION_VIEW);
                         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         Uri apkUri = FileProvider.getUriForFile(cordova.getActivity(), applicationId + ".provider", apkFile);
